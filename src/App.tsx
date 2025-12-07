@@ -2059,6 +2059,22 @@ const PropertyDetail = ({
     property.folderLink || ''
   );
 
+  const handleDeleteProperty = async () => {
+    if (!confirm("Are you sure you want to delete this property? This action cannot be undone.")) return;
+
+    try {
+      if (isOffline) {
+         setProperties(prev => prev.filter(p => p.id !== property.id));
+      } else {
+         await deleteDoc(doc(db, 'properties', property.id));
+      }
+      onBack();
+    } catch (error) {
+       console.error(error);
+       alert("Error deleting property: " + error.message);
+    }
+  };
+
   const handleAddTenant = async (e) => {
     e.preventDefault();
     const data = {
@@ -2086,6 +2102,21 @@ const PropertyDetail = ({
       await updateDoc(doc(db, 'tenants', updatedTenant.id), updatedTenant);
     }
     setEditingTenant(null);
+  };
+  
+  const handleDeleteTenant = async (tenantId) => {
+     if(!confirm("Are you sure you want to delete this tenant? This action cannot be undone.")) return;
+
+     try {
+        if(isOffline) {
+            setTenants(prev => prev.filter(t => t.id !== tenantId));
+        } else {
+            await deleteDoc(doc(db, 'tenants', tenantId));
+        }
+     } catch (err) {
+        console.error(err);
+        alert("Error deleting tenant: " + err.message);
+     }
   };
 
   // ... (Compliance Doc logic - same as before) ...
@@ -2204,11 +2235,12 @@ const PropertyDetail = ({
         >
           <ChevronRight className="w-5 h-5 rotate-180" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 break-words">
-            {property.address}
-          </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="flex-1 flex justify-between items-start md:items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 break-words">
+                {property.address}
+              </h1>
+               <div className="mt-1 flex flex-wrap items-center gap-2">
             {isEditingFolder ? (
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full animate-in fade-in zoom-in duration-200">
                 <input
@@ -2270,6 +2302,14 @@ const PropertyDetail = ({
               </button>
             )}
           </div>
+            </div>
+            <button 
+                onClick={handleDeleteProperty}
+                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1"
+                title="Delete Property"
+            >
+                <Trash2 className="w-5 h-5" />
+            </button>
         </div>
       </div>
 
@@ -2380,6 +2420,7 @@ const PropertyDetail = ({
               setPayments={setPayments}
               emailConfig={emailConfig}
               onEditTenant={() => setEditingTenant(tenant)} // Pass edit handler
+              onDeleteTenant={() => handleDeleteTenant(tenant.id)} // Pass delete handler
             />
           ))}
           {tenants.length === 0 && (
@@ -2654,6 +2695,7 @@ const TenantRow = ({
   setPayments,
   emailConfig,
   onEditTenant,
+  onDeleteTenant,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -2872,8 +2914,19 @@ const TenantRow = ({
                   onEditTenant();
                 }}
                 className="text-gray-400 hover:text-indigo-600 p-1"
+                title="Edit Tenant"
               >
                 <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteTenant();
+                }}
+                className="text-gray-400 hover:text-red-600 p-1"
+                title="Delete Tenant"
+              >
+                <Trash2 className="w-3 h-3" />
               </button>
             </div>
             <p className="text-sm text-gray-500">
