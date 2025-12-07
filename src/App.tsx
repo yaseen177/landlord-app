@@ -66,6 +66,7 @@ import {
   Smartphone,
   User,
   FileCheck,
+  Menu, // Added for mobile navigation
 } from 'lucide-react';
 
 /**
@@ -253,7 +254,7 @@ const Card = ({ children, title, action, className = '' }) => (
     className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}
   >
     {(title || action) && (
-      <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+      <div className="px-6 py-4 border-b border-gray-50 flex flex-row justify-between items-center bg-gray-50/50 flex-wrap gap-2">
         {title && <h3 className="font-semibold text-gray-800">{title}</h3>}
         {action && <div>{action}</div>}
       </div>
@@ -268,6 +269,7 @@ export default function App() {
   const [view, setView] = useState('auth');
   const [user, setUser] = useState(null); // Landlord User (Firebase Auth)
   const [tenantUser, setTenantUser] = useState(null); // Tenant User (Firestore Record)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Mobile Menu State
 
   // Data State
   const [properties, setProperties] = useState([]);
@@ -646,31 +648,50 @@ export default function App() {
     const daysDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return (
-      <div className="min-h-screen bg-gray-50 flex font-sans">
-        <div className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col shadow-sm z-10">
-          <div className="p-6 border-b border-gray-100">
+      <div className="min-h-screen bg-gray-50 flex font-sans relative">
+         {/* Mobile Menu Overlay */}
+         {mobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* Responsive Sidebar */}
+        <div 
+          className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
             <h2 className="text-xl font-bold text-indigo-800 flex items-center gap-2">
               <Home className="w-6 h-6" /> Tenant Portal
             </h2>
+            <button 
+              className="md:hidden text-gray-500"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
           </div>
           <nav className="flex-1 p-4 space-y-1">
             <NavItem
               icon={<Home />}
               label="My Dashboard"
               active={view === 'tenant_dashboard'}
-              onClick={() => setView('tenant_dashboard')}
+              onClick={() => { setView('tenant_dashboard'); setMobileMenuOpen(false); }}
             />
             <NavItem
               icon={<PoundSterling />}
               label="Payment History"
               active={view === 'tenant_payments'}
-              onClick={() => setView('tenant_payments')}
+              onClick={() => { setView('tenant_payments'); setMobileMenuOpen(false); }}
             />
             <NavItem
               icon={<FileText />}
               label="My Contracts"
               active={view === 'tenant_docs'}
-              onClick={() => setView('tenant_docs')}
+              onClick={() => { setView('tenant_docs'); setMobileMenuOpen(false); }}
             />
           </nav>
           <div className="p-4 border-t border-gray-100">
@@ -698,17 +719,24 @@ export default function App() {
         </div>
 
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
-          <header className="md:hidden bg-white p-4 border-b flex justify-between items-center shadow-sm">
-            <span className="font-bold text-indigo-800">Tenant Portal</span>
+          {/* Mobile Header */}
+          <header className="md:hidden bg-white p-4 border-b flex justify-between items-center shadow-sm z-20">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setMobileMenuOpen(true)}>
+                <Menu className="w-6 h-6 text-gray-700" />
+              </button>
+              <span className="font-bold text-indigo-800">Tenant Portal</span>
+            </div>
             <button onClick={handleLogout}>
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-5 h-5 text-gray-600" />
             </button>
           </header>
+
           <main className="flex-1 overflow-auto p-4 md:p-8">
             {view === 'tenant_dashboard' && (
               <div className="max-w-4xl mx-auto space-y-6">
                 {/* WELCOME CARD */}
-                <div className="bg-indigo-600 rounded-xl p-8 text-white shadow-lg relative overflow-hidden">
+                <div className="bg-indigo-600 rounded-xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
                   <div className="relative z-10">
                     <h1 className="text-2xl font-bold mb-2">
                       Welcome back, {liveTenantData.name}
@@ -717,8 +745,8 @@ export default function App() {
                       Current Property:{' '}
                       {myProperty ? myProperty.address : 'Loading...'}
                     </p>
-                    <div className="mt-6 flex gap-4">
-                      <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
+                    <div className="mt-6 flex flex-col sm:flex-row gap-4">
+                      <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm flex-1">
                         <p className="text-xs uppercase font-bold opacity-75">
                           Monthly Rent
                         </p>
@@ -726,7 +754,7 @@ export default function App() {
                           £{getRentForDate(liveTenantData, new Date())}
                         </p>
                       </div>
-                      <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
+                      <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm flex-1">
                         <p className="text-xs uppercase font-bold opacity-75">
                           Next Payment In
                         </p>
@@ -855,30 +883,32 @@ export default function App() {
                   Payment History
                 </h1>
                 <Card>
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 font-medium">
-                      <tr>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Period</th>
-                        <th className="p-3">Method</th>
-                        <th className="p-3 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {tenantPayments.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="p-3">
-                            {new Date(p.dateReceived).toLocaleDateString()}
-                          </td>
-                          <td className="p-3">{p.targetMonth}</td>
-                          <td className="p-3">{p.type}</td>
-                          <td className="p-3 text-right font-bold text-gray-900">
-                            £{p.amount}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left min-w-[500px]">
+                      <thead className="bg-gray-50 text-gray-500 font-medium">
+                        <tr>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Period</th>
+                          <th className="p-3">Method</th>
+                          <th className="p-3 text-right">Amount</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {tenantPayments.map((p) => (
+                          <tr key={p.id} className="hover:bg-gray-50">
+                            <td className="p-3">
+                              {new Date(p.dateReceived).toLocaleDateString()}
+                            </td>
+                            <td className="p-3">{p.targetMonth}</td>
+                            <td className="p-3">{p.type}</td>
+                            <td className="p-3 text-right font-bold text-gray-900">
+                              £{p.amount}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   {tenantPayments.length === 0 && (
                     <p className="p-6 text-center text-gray-400">
                       No payments found.
@@ -901,7 +931,7 @@ export default function App() {
                     ?.filter((d) => d.type === 'Contract')
                     .map((doc, idx) => (
                       <Card key={idx}>
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                           <div className="flex items-center gap-3">
                             <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
                               <FileCheck className="w-6 h-6" />
@@ -919,7 +949,7 @@ export default function App() {
                           <a
                             href={doc.link}
                             target="_blank"
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 flex items-center gap-2"
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 flex items-center gap-2 w-full sm:w-auto justify-center"
                           >
                             <ExternalLink className="w-4 h-4" /> View
                           </a>
@@ -947,12 +977,31 @@ export default function App() {
 
   // --- LANDLORD PORTAL (Normal View) ---
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans">
-      <div className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col shadow-sm z-10">
-        <div className="p-6 border-b border-gray-100">
+    <div className="min-h-screen bg-gray-50 flex font-sans relative">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Responsive Sidebar */}
+      <div 
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
           <h2 className="text-xl font-bold text-indigo-800 flex items-center gap-2">
             <Home className="w-6 h-6" /> PropManager
           </h2>
+          <button 
+            className="md:hidden text-gray-500"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <XCircle className="w-6 h-6" />
+          </button>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           <NavItem
@@ -962,32 +1011,33 @@ export default function App() {
             onClick={() => {
               setView('dashboard');
               setSelectedPropertyId(null);
+              setMobileMenuOpen(false);
             }}
           />
           <NavItem
             icon={<Users />}
             label="Tenants"
             active={view === 'tenants_global'}
-            onClick={() => setView('tenants_global')}
+            onClick={() => { setView('tenants_global'); setMobileMenuOpen(false); }}
           />
           <NavItem
             icon={<PoundSterling />}
             label="Payments"
             active={view === 'payments_global'}
-            onClick={() => setView('payments_global')}
+            onClick={() => { setView('payments_global'); setMobileMenuOpen(false); }}
           />
           <NavItem
             icon={<Bell />}
             label="Notifications"
             active={view === 'notifications'}
-            onClick={() => setView('notifications')}
+            onClick={() => { setView('notifications'); setMobileMenuOpen(false); }}
             badge={notifications.length}
           />
           <NavItem
             icon={<Settings />}
             label="Settings"
             active={view === 'settings'}
-            onClick={() => setView('settings')}
+            onClick={() => { setView('settings'); setMobileMenuOpen(false); }}
           />
         </nav>
         <div className="p-4 border-t border-gray-100">
@@ -1002,10 +1052,16 @@ export default function App() {
       </div>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="md:hidden bg-white p-4 border-b flex justify-between items-center shadow-sm">
-          <span className="font-bold text-indigo-800">PropManager</span>
+        {/* Mobile Header */}
+        <header className="md:hidden bg-white p-4 border-b flex justify-between items-center shadow-sm z-20">
+          <div className="flex items-center gap-3">
+             <button onClick={() => setMobileMenuOpen(true)}>
+                <Menu className="w-6 h-6 text-gray-700" />
+             </button>
+             <span className="font-bold text-indigo-800">PropManager</span>
+          </div>
           <button onClick={handleLogout}>
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 text-gray-600" />
           </button>
         </header>
 
@@ -1253,7 +1309,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
           <h2 className="font-bold text-lg">Edit Tenant: {tenant.name}</h2>
           <button onClick={onClose}>
@@ -1261,10 +1317,10 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
           </button>
         </div>
 
-        <div className="flex border-b">
+        <div className="flex border-b overflow-x-auto">
           <button
             onClick={() => setActiveTab('details')}
-            className={`flex-1 p-3 text-sm font-medium ${
+            className={`flex-1 p-3 text-sm font-medium whitespace-nowrap ${
               activeTab === 'details'
                 ? 'text-indigo-600 border-b-2 border-indigo-600'
                 : 'text-gray-500'
@@ -1274,7 +1330,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
           </button>
           <button
             onClick={() => setActiveTab('schedule')}
-            className={`flex-1 p-3 text-sm font-medium ${
+            className={`flex-1 p-3 text-sm font-medium whitespace-nowrap ${
               activeTab === 'schedule'
                 ? 'text-indigo-600 border-b-2 border-indigo-600'
                 : 'text-gray-500'
@@ -1284,7 +1340,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
           </button>
           <button
             onClick={() => setActiveTab('docs')}
-            className={`flex-1 p-3 text-sm font-medium ${
+            className={`flex-1 p-3 text-sm font-medium whitespace-nowrap ${
               activeTab === 'docs'
                 ? 'text-indigo-600 border-b-2 border-indigo-600'
                 : 'text-gray-500'
@@ -1297,7 +1353,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
         <div className="p-6 overflow-y-auto flex-1">
           {activeTab === 'details' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1">
                     Full Name
@@ -1379,7 +1435,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
                   If a date matches, this amount overrides the default.
                 </p>
               </Alert>
-              <div className="flex gap-2 items-end bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end bg-gray-50 p-3 rounded-lg border border-gray-100">
                 <div className="flex-1">
                   <label className="text-xs">Start Date</label>
                   <input
@@ -1408,7 +1464,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
                     }
                   />
                 </div>
-                <div className="w-24">
+                <div className="w-full sm:w-24">
                   <label className="text-xs">Amount (£)</label>
                   <input
                     type="number"
@@ -1422,7 +1478,7 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
                     }
                   />
                 </div>
-                <Button size="sm" onClick={addScheduleItem}>
+                <Button size="sm" onClick={addScheduleItem} className="w-full sm:w-auto mt-2 sm:mt-0">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -1496,9 +1552,9 @@ const TenantEditModal = ({ tenant, onClose, onSave }) => {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
-                      className="flex-1 p-2 border rounded text-sm"
+                      className="flex-1 p-2 border rounded text-sm w-full"
                       placeholder={`Paste ${type} Link (OneDrive/Google Drive)...`}
                       value={docLink}
                       onChange={(e) => setDocLink(e.target.value)}
@@ -1607,13 +1663,13 @@ const GlobalPaymentsPage = ({
 
       {/* Filters */}
       <Card className="bg-white">
-        <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex flex-col md:flex-row flex-wrap gap-4 items-start md:items-end">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Filter by Property
             </label>
             <select
-              className="p-2 border rounded-lg text-sm w-48"
+              className="p-2 border rounded-lg text-sm w-full md:w-48"
               value={filterProp}
               onChange={(e) => setFilterProp(e.target.value)}
             >
@@ -1630,7 +1686,7 @@ const GlobalPaymentsPage = ({
               Date Range
             </label>
             <select
-              className="p-2 border rounded-lg text-sm w-48"
+              className="p-2 border rounded-lg text-sm w-full md:w-48"
               value={filterRange}
               onChange={(e) => setFilterRange(e.target.value)}
             >
@@ -1642,98 +1698,100 @@ const GlobalPaymentsPage = ({
             </select>
           </div>
           {filterRange === 'custom' && (
-            <>
-              <div>
+            <div className="flex gap-2 w-full md:w-auto">
+              <div className="flex-1 md:flex-none">
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Start Date
                 </label>
                 <input
                   type="date"
-                  className="p-2 border rounded-lg text-sm"
+                  className="p-2 border rounded-lg text-sm w-full"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="flex-1 md:flex-none">
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   End Date
                 </label>
                 <input
                   type="date"
-                  className="p-2 border rounded-lg text-sm"
+                  className="p-2 border rounded-lg text-sm w-full"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
                 />
               </div>
-            </>
+            </div>
           )}
         </div>
       </Card>
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
-            <tr>
-              <th className="p-4">Date Received</th>
-              <th className="p-4">Tenant</th>
-              <th className="p-4">Period</th>
-              <th className="p-4">Method</th>
-              <th className="p-4 text-right">Amount</th>
-              <th className="p-4"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filteredPayments.map((p) => {
-              const tenant = tenants.find((t) => t.id === p.tenantId);
-              const tenantName = tenant ? tenant.name : 'Unknown';
-              return (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="p-4">
-                    {new Date(p.dateReceived).toLocaleDateString()}
-                  </td>
-                  <td className="p-4 font-medium text-gray-900">
-                    {tenantName}
-                  </td>
-                  <td className="p-4 text-gray-500">{p.targetMonth}</td>
-                  <td className="p-4">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        p.type === 'Cash'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}
-                    >
-                      {p.type}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right font-bold text-gray-900">
-                    £{p.amount}
-                  </td>
-                  <td className="p-4 text-right">
-                    {deletingId === p.id ? (
-                      <span className="text-red-500 text-xs font-bold animate-pulse">
-                        Deleting...
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left min-w-[700px]">
+            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+              <tr>
+                <th className="p-4">Date Received</th>
+                <th className="p-4">Tenant</th>
+                <th className="p-4">Period</th>
+                <th className="p-4">Method</th>
+                <th className="p-4 text-right">Amount</th>
+                <th className="p-4"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredPayments.map((p) => {
+                const tenant = tenants.find((t) => t.id === p.tenantId);
+                const tenantName = tenant ? tenant.name : 'Unknown';
+                return (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="p-4">
+                      {new Date(p.dateReceived).toLocaleDateString()}
+                    </td>
+                    <td className="p-4 font-medium text-gray-900">
+                      {tenantName}
+                    </td>
+                    <td className="p-4 text-gray-500">{p.targetMonth}</td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${
+                          p.type === 'Cash'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {p.type}
                       </span>
-                    ) : (
-                      <DeleteButton onDelete={() => handleDelete(p.id)} />
-                    )}
+                    </td>
+                    <td className="p-4 text-right font-bold text-gray-900">
+                      £{p.amount}
+                    </td>
+                    <td className="p-4 text-right">
+                      {deletingId === p.id ? (
+                        <span className="text-red-500 text-xs font-bold animate-pulse">
+                          Deleting...
+                        </span>
+                      ) : (
+                        <DeleteButton onDelete={() => handleDelete(p.id)} />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredPayments.length === 0 && (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className="p-8 text-center text-gray-400 italic"
+                  >
+                    No payments found.
                   </td>
                 </tr>
-              );
-            })}
-            {filteredPayments.length === 0 && (
-              <tr>
-                <td
-                  colSpan="6"
-                  className="p-8 text-center text-gray-400 italic"
-                >
-                  No payments found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1906,12 +1964,12 @@ const Dashboard = ({
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Your Properties</h1>
         <Button onClick={() => setIsAdding(true)}>
-          <Plus className="w-4 h-4" /> Add Property
+          <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Property</span><span className="sm:hidden">Add</span>
         </Button>
       </div>
       {isAdding && (
         <Card>
-          <form onSubmit={addProperty} className="flex gap-4 items-end">
+          <form onSubmit={addProperty} className="flex flex-col sm:flex-row gap-4 sm:items-end">
             <div className="flex-1">
               <label className="block text-sm font-medium mb-1">
                 Search Property Address
@@ -1926,10 +1984,12 @@ const Dashboard = ({
                 autoFocus
               />
             </div>
-            <Button type="submit">Save</Button>
-            <Button variant="ghost" onClick={() => setIsAdding(false)}>
-              Cancel
-            </Button>
+            <div className="flex gap-2">
+               <Button type="submit" className="flex-1 sm:flex-none">Save</Button>
+               <Button variant="ghost" onClick={() => setIsAdding(false)} className="flex-1 sm:flex-none">
+                Cancel
+               </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -2137,39 +2197,41 @@ const PropertyDetail = ({
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-4 mb-2">
+      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-2">
         <button
           onClick={onBack}
-          className="p-2 hover:bg-white rounded-full text-gray-600"
+          className="p-2 hover:bg-white rounded-full text-gray-600 w-fit"
         >
           <ChevronRight className="w-5 h-5 rotate-180" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 break-words">
             {property.address}
           </h1>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             {isEditingFolder ? (
-              <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-200">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full animate-in fade-in zoom-in duration-200">
                 <input
                   autoFocus
-                  className="text-xs border rounded p-1 w-64 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="text-xs border rounded p-1 w-full sm:w-64 focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="Paste OneDrive/Google Drive Folder Link..."
                   value={tempFolderLink}
                   onChange={(e) => setTempFolderLink(e.target.value)}
                 />
-                <button
-                  onClick={saveFolderLink}
-                  className="text-xs bg-indigo-600 text-white px-2 py-1 rounded shadow-sm"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => setIsEditingFolder(false)}
-                  className="text-xs text-gray-500 hover:text-gray-700"
-                >
-                  Cancel
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveFolderLink}
+                    className="text-xs bg-indigo-600 text-white px-2 py-1 rounded shadow-sm"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setIsEditingFolder(false)}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             ) : property.folderLink ? (
               <div className="flex items-center gap-2 group">
@@ -2180,7 +2242,7 @@ const PropertyDetail = ({
                 >
                   <FolderOpen className="w-3 h-3" /> Open Property Folder
                 </a>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => {
                       setIsEditingFolder(true);
@@ -2211,10 +2273,10 @@ const PropertyDetail = ({
         </div>
       </div>
 
-      <div className="flex gap-6 border-b border-gray-200">
+      <div className="flex gap-6 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('tenants')}
-          className={`pb-3 px-1 font-medium text-sm ${
+          className={`pb-3 px-1 font-medium text-sm whitespace-nowrap ${
             activeTab === 'tenants'
               ? 'text-indigo-600 border-b-2 border-indigo-600'
               : 'text-gray-500'
@@ -2224,7 +2286,7 @@ const PropertyDetail = ({
         </button>
         <button
           onClick={() => setActiveTab('compliance')}
-          className={`pb-3 px-1 font-medium text-sm ${
+          className={`pb-3 px-1 font-medium text-sm whitespace-nowrap ${
             activeTab === 'compliance'
               ? 'text-indigo-600 border-b-2 border-indigo-600'
               : 'text-gray-500'
@@ -2256,7 +2318,7 @@ const PropertyDetail = ({
               >
                 <input
                   required
-                  className="p-2 rounded border"
+                  className="p-2 rounded border w-full"
                   placeholder="Full Name"
                   value={newTenant.name}
                   onChange={(e) =>
@@ -2266,7 +2328,7 @@ const PropertyDetail = ({
                 <input
                   required
                   type="email"
-                  className="p-2 rounded border"
+                  className="p-2 rounded border w-full"
                   placeholder="Email"
                   value={newTenant.email}
                   onChange={(e) =>
@@ -2275,7 +2337,7 @@ const PropertyDetail = ({
                 />
                 <input
                   type="tel"
-                  className="p-2 rounded border"
+                  className="p-2 rounded border w-full"
                   placeholder="Mobile (Optional)"
                   value={newTenant.phone}
                   onChange={(e) =>
@@ -2286,7 +2348,7 @@ const PropertyDetail = ({
                   <input
                     required
                     type="number"
-                    className="p-2 rounded border w-24"
+                    className="p-2 rounded border w-24 flex-1"
                     placeholder="Rent £"
                     value={newTenant.rentAmount}
                     onChange={(e) =>
@@ -2339,7 +2401,7 @@ const PropertyDetail = ({
                 <strong>Google Drive</strong> first, then paste the "Share Link"
                 here.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <a
                   href="https://onedrive.live.com"
                   target="_blank"
@@ -2385,7 +2447,7 @@ const PropertyDetail = ({
                         <h4 className="font-semibold text-gray-900">
                           {doc.name}
                         </h4>
-                        <div className="flex gap-2 mt-1">
+                        <div className="flex flex-wrap gap-2 mt-1">
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full ${
                               doc.mandatory
@@ -2794,11 +2856,11 @@ const TenantRow = ({
       }`}
     >
       <div
-        className="p-4 flex items-center justify-between cursor-pointer"
+        className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between cursor-pointer gap-4"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold shrink-0">
             {tenant.name.charAt(0)}
           </div>
           <div>
@@ -2819,7 +2881,7 @@ const TenantRow = ({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <Button
             size="sm"
             variant="secondary"
@@ -2827,9 +2889,9 @@ const TenantRow = ({
               e.stopPropagation();
               setSmsModalOpen(true);
             }}
-            className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+            className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 flex-1 sm:flex-none text-xs sm:text-sm px-2 sm:px-4"
           >
-            <MessageSquare className="w-4 h-4" /> Remind Rent
+            <MessageSquare className="w-4 h-4" /> <span className="hidden xs:inline">Remind</span><span className="xs:hidden">SMS</span>
           </Button>
           <Button
             size="sm"
@@ -2839,8 +2901,9 @@ const TenantRow = ({
               setEditingPayment(null);
               setShowPaymentModal(true);
             }}
+            className="flex-1 sm:flex-none text-xs sm:text-sm px-2 sm:px-4"
           >
-            <PoundSterling className="w-4 h-4" /> Log Payment
+            <PoundSterling className="w-4 h-4" /> Log Pay
           </Button>
           <ChevronRight
             className={`w-5 h-5 text-gray-400 transition-transform ${
@@ -2851,7 +2914,7 @@ const TenantRow = ({
       </div>
 
       {expanded && (
-        <div className="bg-gray-50 p-6 border-t border-gray-100 space-y-6">
+        <div className="bg-gray-50 p-4 sm:p-6 border-t border-gray-100 space-y-6">
           {/* MONTHLY RENT DASHBOARD */}
           <div>
             <div className="flex justify-between items-center mb-3">
@@ -2938,7 +3001,7 @@ const TenantRow = ({
                   .map((p) => (
                     <div
                       key={p.id}
-                      className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 text-sm shadow-sm group"
+                      className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-3 rounded-lg border border-gray-200 text-sm shadow-sm group gap-3"
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -2967,7 +3030,7 @@ const TenantRow = ({
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
                           <div className="text-gray-900 font-medium">
                             {new Date(p.dateReceived).toLocaleDateString()}
@@ -3013,7 +3076,7 @@ const TenantRow = ({
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card
-            className="w-full max-w-md"
+            className="w-full max-w-md mx-4"
             title={editingPayment ? 'Edit Payment' : 'Record Payment'}
           >
             <form onSubmit={handleSavePayment} className="space-y-4">
@@ -3100,7 +3163,7 @@ const TenantRow = ({
       {/* CONFIRMATION MODAL FOR EMAIL */}
       {showReceiptConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden mx-4">
             <div className="bg-indigo-600 p-4 text-white text-center">
               <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-90" />
               <h3 className="text-lg font-bold">Payment Saved!</h3>
@@ -3189,7 +3252,7 @@ const SendSMSModal = ({ tenant, onClose, rentAmount }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md" title="Send Rent Reminder">
+      <Card className="w-full max-w-md mx-4" title="Send Rent Reminder">
         <div className="space-y-4">
           <Alert type="info">
             Send a reminder to{' '}
