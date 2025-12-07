@@ -895,7 +895,7 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {tenantPayments.map((p) => (
-                          <tr key={p.id} className="hover:bg-gray-50">
+                          <tr key={p.id} className="hover:bg-gray-50 text-gray-700">
                             <td className="p-3">
                               {new Date(p.dateReceived).toLocaleDateString()}
                             </td>
