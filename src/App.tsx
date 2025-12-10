@@ -390,6 +390,19 @@ export default function App() {
     return () => unsubscribe();
   }, [tenantUser]);
 
+  // --- NEW EFFECT: TRACK TENANT NAVIGATION ---
+  useEffect(() => {
+    if (tenantUser && view.startsWith('tenant_')) {
+      const pageNames = {
+        'tenant_dashboard': 'Dashboard',
+        'tenant_payments': 'Payment History',
+        'tenant_docs': 'Contracts & Documents'
+      };
+      const pageName = pageNames[view] || view;
+      logTenantActivity(db, tenantUser, 'Navigation', `Accessed ${pageName} page`);
+    }
+  }, [view, tenantUser]);
+
   useEffect(() => {
     // Only try to fetch from Firebase if we are Online
     if ((!user && !tenantUser) || isOffline) return;
@@ -3405,16 +3418,17 @@ const SendSMSModal = ({ tenant, onClose, rentAmount }) => {
 const ActivityLogsPage = ({ db, tenants }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [limitCount, setLimitCount] = useState(50);
+  
+  // Filters
   const [filterTenant, setFilterTenant] = useState('all');
+  const [filterAction, setFilterAction] = useState('all');
+  const [searchDetails, setSearchDetails] = useState('');
 
   useEffect(() => {
     const fetchLogs = async () => {
       setLoading(true);
       try {
-        let q = query(collection(db, 'activity_logs'), where('timestamp', '!=', '')); 
-        // Note: Simple query to avoid composite index requirements for now.
-        // We will sort client-side to ensure it works immediately without console setup.
+        let q = query(collection(db, 'activity_logs')); 
         
         const snapshot = await getDocs(q);
         let fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -3432,18 +3446,37 @@ const ActivityLogsPage = ({ db, tenants }) => {
     fetchLogs();
   }, [db]);
 
+  // Extract unique actions for the dropdown
+  const uniqueActions = ['all', ...new Set(logs.map(log => log.action))];
+
   const filteredLogs = logs.filter(log => {
+    // 1. Filter by Tenant
     if (filterTenant !== 'all' && log.tenantId !== filterTenant) return false;
+    
+    // 2. Filter by Action
+    if (filterAction !== 'all' && log.action !== filterAction) return false;
+
+    // 3. Filter by Details (Search)
+    if (searchDetails) {
+        const searchLower = searchDetails.toLowerCase();
+        const detailsMatch = log.details?.toLowerCase().includes(searchLower);
+        const ipMatch = log.ipAddress?.toLowerCase().includes(searchLower);
+        if (!detailsMatch && !ipMatch) return false;
+    }
+
     return true;
-  }).slice(0, limitCount);
+  });
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Tenant Activity Logs</h1>
-        <div className="flex gap-2">
+        
+        {/* Filter Controls */}
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          {/* Tenant Filter */}
           <select 
-            className="p-2 border rounded-lg text-sm"
+            className="p-2 border rounded-lg text-sm bg-white min-w-[150px]"
             value={filterTenant}
             onChange={(e) => setFilterTenant(e.target.value)}
           >
@@ -3452,15 +3485,29 @@ const ActivityLogsPage = ({ db, tenants }) => {
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
+
+          {/* Action Filter */}
           <select 
-            className="p-2 border rounded-lg text-sm"
-            value={limitCount}
-            onChange={(e) => setLimitCount(Number(e.target.value))}
+            className="p-2 border rounded-lg text-sm bg-white min-w-[150px]"
+            value={filterAction}
+            onChange={(e) => setFilterAction(e.target.value)}
           >
-            <option value="25">Show 25</option>
-            <option value="50">Show 50</option>
-            <option value="100">Show 100</option>
+            <option value="all">All Actions</option>
+            {uniqueActions.filter(a => a !== 'all').map(action => (
+              <option key={action} value={action}>{action}</option>
+            ))}
           </select>
+
+          {/* Search Input */}
+          <div className="relative flex-1 md:flex-none">
+             <input 
+                type="text" 
+                placeholder="Search details or IP..." 
+                className="p-2 pl-2 border rounded-lg text-sm w-full md:w-64"
+                value={searchDetails}
+                onChange={(e) => setSearchDetails(e.target.value)}
+             />
+          </div>
         </div>
       </div>
 
@@ -3480,7 +3527,7 @@ const ActivityLogsPage = ({ db, tenants }) => {
               {loading ? (
                 <tr><td colSpan="5" className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-600"/></td></tr>
               ) : filteredLogs.length === 0 ? (
-                <tr><td colSpan="5" className="p-8 text-center text-gray-400">No activity recorded yet.</td></tr>
+                <tr><td colSpan="5" className="p-8 text-center text-gray-400">No activity found matching your filters.</td></tr>
               ) : (
                 filteredLogs.map(log => (
                   <tr key={log.id} className="hover:bg-gray-50">
@@ -3499,7 +3546,9 @@ const ActivityLogsPage = ({ db, tenants }) => {
                         {log.action}
                       </span>
                     </td>
-                    <td className="p-3 text-gray-600">{log.details}</td>
+                    <td className="p-3 text-gray-600 max-w-xs truncate" title={log.details}>
+                        {log.details}
+                    </td>
                     <td className="p-3 font-mono text-xs text-gray-500">{log.ipAddress}</td>
                   </tr>
                 ))
@@ -3507,6 +3556,11 @@ const ActivityLogsPage = ({ db, tenants }) => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+            <div className="p-2 text-center text-xs text-gray-400 border-t">
+                Showing all {filteredLogs.length} records
+            </div>
+        )}
       </Card>
     </div>
   );
