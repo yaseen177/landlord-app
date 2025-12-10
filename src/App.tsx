@@ -2130,7 +2130,6 @@ const PropertyDetail = ({
 }) => {
   const [activeTab, setActiveTab] = useState('tenants');
   const [showAddTenant, setShowAddTenant] = useState(false);
-  // NEW: State for editing tenant
   const [editingTenant, setEditingTenant] = useState(null);
 
   const [newTenant, setNewTenant] = useState({
@@ -2211,7 +2210,6 @@ const PropertyDetail = ({
      }
   };
 
-  // ... (Compliance Doc logic - same as before) ...
   const saveFolderLink = async () => {
     const finalLink = ensureProtocol(tempFolderLink);
     const updatedProp = { ...property, folderLink: finalLink };
@@ -2305,7 +2303,6 @@ const PropertyDetail = ({
     }
   };
 
-  // Helper to determine status color
   const getDocStatus = (doc) => {
     if (!doc.uploaded) return 'missing';
     if (!doc.expiryDate) return 'valid';
@@ -2319,7 +2316,6 @@ const PropertyDetail = ({
   };
 
   // --- NEW COMPLIANCE FUNCTIONS ---
-
   const toggleDocVisibility = async (docId) => {
     const updatedCompliance = property.compliance.map((c) =>
       c.id === docId ? { ...c, visibleToTenant: !c.visibleToTenant } : c
@@ -2363,7 +2359,6 @@ const PropertyDetail = ({
       await updateDoc(doc(db, 'properties', property.id), { compliance: updatedCompliance });
     }
   };
-  // --------------------------------
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -2452,7 +2447,6 @@ const PropertyDetail = ({
         </div>
       </div>
 
-      {/* --- TABS HEADER --- */}
       <div className="flex gap-6 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('tenants')}
@@ -2476,7 +2470,6 @@ const PropertyDetail = ({
         </button>
       </div>
 
-      {/* --- TAB 1: TENANTS --- */}
       {activeTab === 'tenants' && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -2560,7 +2553,7 @@ const PropertyDetail = ({
               isOffline={isOffline}
               setPayments={setPayments}
               emailConfig={emailConfig}
-              onEditTenant={() => setEditingTenant(tenant)}
+              onEditTenant={() => setEditingTenant(tenant)} 
               onDeleteTenant={() => handleDeleteTenant(tenant.id)}
             />
           ))}
@@ -2572,7 +2565,7 @@ const PropertyDetail = ({
         </div>
       )}
 
-      {/* --- TAB 2: COMPLIANCE --- */}
+      {/* COMPLIANCE TAB */}
       {activeTab === 'compliance' && (
         <div className="space-y-4">
           {!property.folderLink && (
