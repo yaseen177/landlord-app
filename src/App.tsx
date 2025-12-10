@@ -358,6 +358,19 @@ export default function App() {
     setNotifications(alerts);
   }, [properties, user]);
 
+  // --- NEW EFFECT: TRACK TENANT NAVIGATION ---
+  useEffect(() => {
+    if (tenantUser && view.startsWith('tenant_')) {
+      const pageNames = {
+        'tenant_dashboard': 'Dashboard',
+        'tenant_payments': 'Payment History',
+        'tenant_docs': 'Contracts & Documents'
+      };
+      const pageName = pageNames[view] || view;
+      logTenantActivity(db, tenantUser, 'Navigation', `Accessed ${pageName} page`);
+    }
+  }, [view, tenantUser]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       // FIX: Only treat as landlord if NOT anonymous
@@ -378,18 +391,6 @@ export default function App() {
   useEffect(() => {
     // Only try to fetch from Firebase if we are Online
     if ((!user && !tenantUser) || isOffline) return;
-
-    useEffect(() => {
-      if (tenantUser && view.startsWith('tenant_')){
-        const pageNames ={
-          'tenant_dashboard':'Dashboard',
-          'tenant_payments': 'Payment History',
-          'tenant_docs': 'Contracts & Documents'
-        }
-        const pageName = pageNames[view] || view;
-        logTenantActivity(db, tenantUser, 'Navigation', `Accessed ${pageName} page`);
-      }
-    },[view,tenantUser]);
 
     const handleError = (err) => {
       console.error('Firestore Error:', err);
