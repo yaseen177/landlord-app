@@ -390,18 +390,6 @@ export default function App() {
     return () => unsubscribe();
   }, [tenantUser]);
 
-  // --- NEW EFFECT: TRACK TENANT NAVIGATION ---
-  useEffect(() => {
-    if (tenantUser && view.startsWith('tenant_')) {
-      const pageNames = {
-        'tenant_dashboard': 'Dashboard',
-        'tenant_payments': 'Payment History',
-        'tenant_docs': 'Contracts & Documents'
-      };
-      const pageName = pageNames[view] || view;
-      logTenantActivity(db, tenantUser, 'Navigation', `Accessed ${pageName} page`);
-    }
-  }, [view, tenantUser]);
 
   useEffect(() => {
     // Only try to fetch from Firebase if we are Online
