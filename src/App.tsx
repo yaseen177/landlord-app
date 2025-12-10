@@ -69,7 +69,6 @@ import {
   Menu, // Added for mobile navigation
   Eye,
   EyeOff,
-  Shield,
 } from 'lucide-react';
 
 /**
