@@ -2697,7 +2697,6 @@ const PropertyDetail = ({
             })}
           </div>
         </div>
-      )}
     </div>
   );
 };
