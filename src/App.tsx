@@ -145,6 +145,36 @@ const ensureProtocol = (url) => {
   return url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
 };
 
+// --- NEW UTILITY: TENANT LOGGING ---
+const logTenantActivity = async (db, tenant, action, details = '') => {
+  try {
+    // Attempt to fetch IP (fails gracefully if adblock/network blocks it)
+    let ipAddress = 'Unknown';
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipRes.json();
+      ipAddress = ipData.ip;
+    } catch (e) {
+      console.warn('Could not fetch IP for log');
+    }
+
+    const logEntry = {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      action: action, // e.g., 'Login', 'Logout', 'Viewed Payments'
+      details: details,
+      ipAddress: ipAddress,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+    };
+
+    // Fire and forget - don't await this to keep UI snappy
+    addDoc(collection(db, 'activity_logs'), logEntry).catch(e => console.error("Logging failed", e));
+  } catch (err) {
+    console.error('Error in logTenantActivity:', err);
+  }
+};
+
 // Helper to calculate rent based on date
 const getRentForDate = (tenant, date) => {
   if (!tenant.rentSchedule || tenant.rentSchedule.length === 0) {
@@ -349,6 +379,18 @@ export default function App() {
     // Only try to fetch from Firebase if we are Online
     if ((!user && !tenantUser) || isOffline) return;
 
+    useEffect(() => {
+      if (tenantUser && view.startsWith('tenant_')){
+        const pageNames ={
+          'tenant_dashboard':'Dashboard',
+          'tenant_payments': 'Payment History',
+          'tenant_docs': 'Contracts & Documents'
+        }
+        const pageName = pageNames[view] || view;
+        logTenantActivity(db, tenantUser, 'Navigation', `Accessed ${pageName} page`);
+      }
+    },[view,tenantUser]);
+
     const handleError = (err) => {
       console.error('Firestore Error:', err);
       if (
@@ -476,6 +518,7 @@ export default function App() {
         });
 
         if (foundTenant) {
+          logTenantActivity(db, foundTenant,'Login','Successful login to Tenant Portal');
           setTenantUser(foundTenant);
           setUser(null);
           setView('tenant_dashboard');
@@ -490,6 +533,9 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    if(tenantUser){
+      logTenantActivity(db, tenantUser,'Logout','User clicked Sign Out');
+    }
     if (user || auth.currentUser) await signOut(auth);
     setUser(null);
     setTenantUser(null);
@@ -1039,6 +1085,12 @@ export default function App() {
             active={view === 'settings'}
             onClick={() => { setView('settings'); setMobileMenuOpen(false); }}
           />
+          <NavItem
+            icon={<FileText/>}
+            label="Tenant Logs"
+            active={view === 'activity_logs'}
+            onClick={() => { setView('activity_logs'); setMobileMenuOpen(false);}}
+          />
         </nav>
         <div className="p-4 border-t border-gray-100">
           <Button
@@ -1150,6 +1202,9 @@ export default function App() {
               isOffline={isOffline}
               setTenants={setTenants}
             />
+          )}
+          {view === 'activity_logs' && (
+            <ActivityLogsPage db={db} tenants={tenants} />
           )}
         </main>
       </div>
@@ -3374,6 +3429,117 @@ const SendSMSModal = ({ tenant, onClose, rentAmount }) => {
               Cancel
             </Button>
           </div>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// --- NEW COMPONENT: ACTIVITY LOGS PAGE ---
+const ActivityLogsPage = ({ db, tenants }) => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [limitCount, setLimitCount] = useState(50);
+  const [filterTenant, setFilterTenant] = useState('all');
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      setLoading(true);
+      try {
+        let q = query(collection(db, 'activity_logs'), where('timestamp', '!=', '')); 
+        // Note: Simple query to avoid composite index requirements for now.
+        // We will sort client-side to ensure it works immediately without console setup.
+        
+        const snapshot = await getDocs(q);
+        let fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Client-side Sort (Newest First)
+        fetchedLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        setLogs(fetchedLogs);
+      } catch (err) {
+        console.error("Error fetching logs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, [db]);
+
+  const filteredLogs = logs.filter(log => {
+    if (filterTenant !== 'all' && log.tenantId !== filterTenant) return false;
+    return true;
+  }).slice(0, limitCount);
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Tenant Activity Logs</h1>
+        <div className="flex gap-2">
+          <select 
+            className="p-2 border rounded-lg text-sm"
+            value={filterTenant}
+            onChange={(e) => setFilterTenant(e.target.value)}
+          >
+            <option value="all">All Tenants</option>
+            {tenants.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          <select 
+            className="p-2 border rounded-lg text-sm"
+            value={limitCount}
+            onChange={(e) => setLimitCount(Number(e.target.value))}
+          >
+            <option value="25">Show 25</option>
+            <option value="50">Show 50</option>
+            <option value="100">Show 100</option>
+          </select>
+        </div>
+      </div>
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-gray-500 font-medium border-b">
+              <tr>
+                <th className="p-3">Time</th>
+                <th className="p-3">Tenant</th>
+                <th className="p-3">Action</th>
+                <th className="p-3">Details</th>
+                <th className="p-3">IP Address</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan="5" className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-600"/></td></tr>
+              ) : filteredLogs.length === 0 ? (
+                <tr><td colSpan="5" className="p-8 text-center text-gray-400">No activity recorded yet.</td></tr>
+              ) : (
+                filteredLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-gray-50">
+                    <td className="p-3 whitespace-nowrap text-gray-600">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </td>
+                    <td className="p-3 font-medium text-indigo-700">
+                      {log.tenantName}
+                    </td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        log.action === 'Login' ? 'bg-green-100 text-green-700' :
+                        log.action === 'Logout' ? 'bg-gray-100 text-gray-700' :
+                        'bg-blue-50 text-blue-700'
+                      }`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="p-3 text-gray-600">{log.details}</td>
+                    <td className="p-3 font-mono text-xs text-gray-500">{log.ipAddress}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>
