@@ -182,41 +182,6 @@ const formatPhoneForWhatsapp = (phone) => {
   return '44' + cleaned; // Default to UK if ambiguous
 };
 
-// =======================
-// TENANT ACTIVITY LOGGER
-// =======================
-
-// Log a tenant login event
-const logTenantLogin = async (tenantId) => {
-  try {
-    const ip = await fetch("https://api.ipify.org?format=json")
-      .then((res) => res.json())
-      .then((d) => d.ip)
-      .catch(() => "Unknown");
-
-    await addDoc(collection(db, "tenant_activity", tenantId, "logins"), {
-      timestamp: new Date().toISOString(),
-      ipAddress: ip,
-      userAgent: navigator.userAgent || "Unknown",
-    });
-  } catch (err) {
-    console.error("Login logging failed:", err);
-  }
-};
-
-// Log a tenant page view
-const logTenantPageView = async (tenantId, pageName) => {
-  try {
-    await addDoc(collection(db, "tenant_activity", tenantId, "pageviews"), {
-      timestamp: new Date().toISOString(),
-      page: pageName,
-    });
-  } catch (err) {
-    console.error("Pageview logging failed:", err);
-  }
-};
-
-
 // Helper: Get Last X Months for Dashboard
 const getLastMonths = (count) => {
   const months = [];
@@ -514,8 +479,6 @@ export default function App() {
           setTenantUser(foundTenant);
           setUser(null);
           setView('tenant_dashboard');
-          logTenantPageView(tenantUser.id, 'dashboard');
-          logTenantLogin(foundTenant.id);
         } else {
           setLoginError('Incorrect password. Please try again.');
         }
@@ -716,13 +679,13 @@ export default function App() {
               icon={<Home />}
               label="My Dashboard"
               active={view === 'tenant_dashboard'}
-              onClick={() => { setView('tenant_dashboard'); logTenantPageView(tenantUser.id, 'dashboard'); setMobileMenuOpen(false); }}
+              onClick={() => { setView('tenant_dashboard'); setMobileMenuOpen(false); }}
             />
             <NavItem
               icon={<PoundSterling />}
               label="Payment History"
               active={view === 'tenant_payments'}
-              onClick={() => { setView('tenant_payments'); logTenantPageView(tenantUser.id, 'payments'); setMobileMenuOpen(false); }}
+              onClick={() => { setView('tenant_payments'); setMobileMenuOpen(false); }}
             />
             <NavItem
               icon={<FileText />}
@@ -1154,9 +1117,6 @@ export default function App() {
               emailConfig={emailConfig}
             />
           )}
-          {view === 'tenant_activity' && (
-            <TenantActivityPage />
-          )}
           {view === 'settings' && (
             <SettingsPage
               complianceTypes={complianceTypes}
@@ -1196,90 +1156,6 @@ export default function App() {
     </div>
   );
 }
-
-const TenantActivityPage = () => {
-  const [selectedTenant, setSelectedTenant] = useState(null);
-  const [logins, setLogins] = useState([]);
-  const [pages, setPages] = useState([]);
-
-  const loadActivity = async (tenantId) => {
-    setSelectedTenant(tenantId);
-
-    const loginSnap = await getDocs(
-      collection(db, "tenant_activity", tenantId, "logins")
-    );
-    const pageSnap = await getDocs(
-      collection(db, "tenant_activity", tenantId, "pageviews")
-    );
-
-    setLogins(loginSnap.docs.map((d) => d.data()));
-    setPages(pageSnap.docs.map((d) => d.data()));
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Tenant Activity</h1>
-
-      {/* Tenant Picker */}
-      <Card title="Select Tenant">
-        <select
-          className="w-full p-3 border rounded-lg"
-          onChange={(e) => loadActivity(e.target.value)}
-        >
-          <option value="">Select a tenant...</option>
-          {tenants.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} — {t.email}
-            </option>
-          ))}
-        </select>
-      </Card>
-
-      {selectedTenant && (
-        <>
-          <Card title="Login History">
-            {logins.length === 0 ? (
-              <p className="text-gray-500">No login records...</p>
-            ) : (
-              <ul className="space-y-2">
-                {logins.map((l, i) => (
-                  <li
-                    key={i}
-                    className="p-2 border rounded-lg bg-gray-50 text-sm"
-                  >
-                    <b>{new Date(l.timestamp).toLocaleString()}</b>
-                    <br />
-                    IP: {l.ipAddress}
-                    <br />
-                    Device: {l.userAgent}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card title="Page Views">
-            {pages.length === 0 ? (
-              <p className="text-gray-500">No page views recorded...</p>
-            ) : (
-              <ul className="space-y-2">
-                {pages.map((p, i) => (
-                  <li
-                    key={i}
-                    className="p-2 border rounded-lg bg-gray-50 text-sm"
-                  >
-                    {new Date(p.timestamp).toLocaleString()} — {p.page}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </>
-      )}
-    </div>
-  );
-};
-
 
 // ... existing NavItem ...
 const NavItem = ({ icon, label, active, onClick, badge }) => (
